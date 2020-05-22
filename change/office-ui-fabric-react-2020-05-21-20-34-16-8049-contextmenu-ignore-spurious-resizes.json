@@ -2,7 +2,7 @@
   "type": "patch",
   "comment": "ContextualMenu: Fix no-op window resize events causing menu dismissal",
   "packageName": "office-ui-fabric-react",
-  "email": "dan@dbjorge.net",
+  "email": "danielbj@microsoft.com",
   "dependentChangeType": "patch",
   "date": "2020-05-22T03:34:16.696Z"
 }
