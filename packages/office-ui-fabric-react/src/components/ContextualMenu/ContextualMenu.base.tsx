@@ -89,7 +89,7 @@ export function canAnyMenuItemsCheck(items: IContextualMenuItem[]): boolean {
   });
 }
 
-const NavigationIdleDelay = 250 /* ms */;
+const NavigationIdleDelay = 250; /* ms */
 
 const COMPONENT_NAME = 'ContextualMenu';
 
@@ -129,6 +129,8 @@ export class ContextualMenuBase extends React.Component<IContextualMenuProps, IC
   private _gotMouseMove: boolean;
   private _mounted = false;
   private _focusingPreviousElement: boolean;
+  private _previousTargetWindowInnerHeight: number;
+  private _previousTargetWindowInnerWidth: number;
 
   private _adjustedFocusZoneProps: IFocusZoneProps;
 
@@ -307,7 +309,7 @@ export class ContextualMenuBase extends React.Component<IContextualMenuProps, IC
     const targetAsHtmlElement = this._target as HTMLElement;
     if ((useTargetWidth || useTargetAsMinWidth) && targetAsHtmlElement && targetAsHtmlElement.offsetWidth) {
       const targetBoundingRect = targetAsHtmlElement.getBoundingClientRect();
-      const targetWidth = targetBoundingRect.width - 2 /* Accounts for 1px border */;
+      const targetWidth = targetBoundingRect.width - 2; /* Accounts for 1px border */
 
       if (useTargetWidth) {
         contextMenuStyle = {
@@ -409,15 +411,39 @@ export class ContextualMenuBase extends React.Component<IContextualMenuProps, IC
     return !!props.hidden;
   }
 
+  private _hasWindowSizeChanged() {
+    const heightChanged = this._previousTargetWindowInnerHeight !== this._targetWindow.innerHeight;
+    const widthChanged = this._previousTargetWindowInnerWidth !== this._targetWindow.innerWidth;
+    return heightChanged || widthChanged;
+  }
+
+  private _updateWindowSizeTracking() {
+    this._previousTargetWindowInnerHeight = this._targetWindow.innerHeight;
+    this._previousTargetWindowInnerWidth = this._targetWindow.innerWidth;
+  }
+
+  private _onTargetWindowResize() {
+    // Tracking size changes is important because Firefox's webextension popup auto-sizing
+    // will sometimes send window resize events even when the window isn't changing size.
+    // See https://github.com/microsoft/fluentui/issues/8049
+    if (this._hasWindowSizeChanged()) {
+      // Updating even though we're about to dismiss is important because a user could
+      // preventDefault() in an onDismiss handler.
+      this._updateWindowSizeTracking();
+      this.dismiss();
+    }
+  }
+
   private _onMenuOpened() {
-    this._events.on(this._targetWindow, 'resize', this.dismiss);
+    this._updateWindowSizeTracking();
+    this._events.on(this._targetWindow, 'resize', this._onTargetWindowResize);
     this._shouldUpdateFocusOnMouseEvent = !this.props.delayUpdateFocusOnHover;
     this._gotMouseMove = false;
     this.props.onMenuOpened && this.props.onMenuOpened(this.props);
   }
 
   private _onMenuClosed() {
-    this._events.off(this._targetWindow, 'resize', this.dismiss);
+    this._events.off(this._targetWindow, 'resize', this._onTargetWindowResize);
 
     // This is kept for backwards compatability with hidden for right now.
     // This preserves the way that this behaved in the past
