@@ -1295,4 +1295,69 @@ describe('ContextualMenu', () => {
 
     expect(customLinkContentEls.length).toBe(1);
   });
+
+  describe('window resize event handling', () => {
+    // tslint:disable-next-line:no-any
+    const mockWindow: { [key: string]: any } = {
+      eventListeners: {},
+      addEventListener: (name: string, callback: Function) => {
+        mockWindow.eventListeners[name] = callback;
+      },
+      removeEventListener: (name: string, callback: Function) => {
+        if (mockWindow[name] === callback) {
+          mockWindow.eventListeners[name] = undefined;
+        }
+      },
+    };
+    const mockDocument = {
+      defaultView: mockWindow,
+      activeElement: undefined,
+    };
+    const mockTarget = {
+      ownerDocument: mockDocument,
+    };
+    const mockRefObject = ({ current: mockTarget } as unknown) as React.RefObject<HTMLElement>;
+
+    let menuDismissed: boolean;
+    const onDismiss = () => {
+      menuDismissed = true;
+    };
+
+    const items: IContextualMenuItem[] = [
+      {
+        text: 'TestText 1',
+        key: 'TestKey1',
+      },
+    ];
+
+    beforeEach(() => {
+      mockWindow.eventListeners = {};
+      mockWindow.document = mockDocument;
+      mockWindow.innerWidth = 1;
+      mockWindow.innerHeight = 1;
+      menuDismissed = false;
+    });
+
+    it('dismisses itself when the target window is resized', () => {
+      ReactTestUtils.renderIntoDocument<IContextualMenuProps>(
+        <ContextualMenu onDismiss={onDismiss} items={items} target={mockRefObject} />,
+      );
+
+      mockWindow.innerHeight += 1;
+      mockWindow.eventListeners['resize']();
+
+      expect(menuDismissed).toBeTruthy();
+    });
+
+    // Regression test for https://github.com/microsoft/fluentui/issues/8049
+    it('does not dismiss itself when a spurious resize event occurs', () => {
+      ReactTestUtils.renderIntoDocument<IContextualMenuProps>(
+        <ContextualMenu onDismiss={onDismiss} items={items} target={mockRefObject} />,
+      );
+
+      mockWindow.eventListeners['resize'](); // without modifying mockWindow.innerHeight/innerWidth
+
+      expect(menuDismissed).toBeFalsy();
+    });
+  });
 });
